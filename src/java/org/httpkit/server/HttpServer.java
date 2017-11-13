@@ -376,11 +376,15 @@ public class HttpServer implements Runnable {
         // wait all requests to finish, at most timeout milliseconds
         handler.close(timeout);
 
+	synchronized(selector) {
+
         // close socket, notify on-close handlers
-        if (selector.isOpen()) {
-//            Set<SelectionKey> keys = selector.keys();
-//            SelectionKey[] keys = t.toArray(new SelectionKey[t.size()]);
-            for (SelectionKey k : selector.keys()) {
+	  if (selector.isOpen()) {
+	    //            Set<SelectionKey> keys = selector.keys();
+	    //            SelectionKey[] keys = t.toArray(new SelectionKey[t.size()]);
+	    Set<SelectionKey> selectedKeys = selector.selectedKeys();
+	    synchronized(selectedKeys) {
+	      for (SelectionKey k : selector.keys()) {
                 /**
                  * 1. t.toArray will fill null if given array is larger.
                  * 2. compute t.size(), then try to fill the array, if in the mean time, another
@@ -389,14 +393,17 @@ public class HttpServer implements Runnable {
                  * https://github.com/http-kit/http-kit/issues/125
                  */
                 if (k != null)
-                    closeKey(k, 0); // 0 => close by server
-            }
+		  closeKey(k, 0); // 0 => close by server
+	      }
+
+	    }
 
             try {
-                selector.close();
+	      selector.close();
             } catch (IOException ignore) {
             }
-        }
+	  }
+	}
     }
 
     public int getPort() {
